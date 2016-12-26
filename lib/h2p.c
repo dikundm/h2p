@@ -22,46 +22,6 @@ void deflate(nghttp2_hd_deflater *deflater,
 int inflate_header_block(nghttp2_hd_inflater *inflater, uint8_t *in,
                          size_t inlen, int final);
 
-ssize_t send_callback(nghttp2_session *session,
-                              const uint8_t *data, size_t length,
-                              int flags, void *user_data) {
-  H2P_DEBUG
-  return 0;
-}
-
-#if 0
-ssize_t recv_callback(nghttp2_session *session, uint8_t *buf,
-                              size_t length, int flags,
-                              void *user_data) {
-  H2P_DEBUG
-  return 0;
-}
-#endif 
-
-int before_frame_send_callback(nghttp2_session *session,
-                                       const nghttp2_frame *frame,
-                                       void *user_data) {
-  H2P_DEBUG
-  return 0;
-}
-
-int on_frame_send_callback(nghttp2_session *session _U_,
-                           const nghttp2_frame *frame, void *user_data) {
-  H2P_DEBUG
-  return 0;
-}
-
-int send_data_callback(nghttp2_session *session,
-                       nghttp2_frame *frame,
-                       const uint8_t *framehd, size_t length,
-                       nghttp2_data_source *source,
-                       void *user_data) {
-  H2P_DEBUG
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
 int on_begin_frame_callback(nghttp2_session *session,
                             const nghttp2_frame_hd *hd,
                             void *user_data) {
@@ -71,12 +31,23 @@ int on_begin_frame_callback(nghttp2_session *session,
   return 0;
 }
 
+int on_header_callback(nghttp2_session *session _U_,
+                       const nghttp2_frame *frame, const uint8_t *name,
+                       size_t namelen, const uint8_t *value,
+                       size_t valuelen, uint8_t flags _U_,
+                       void *user_data) {
+  h2p_context *context = (h2p_context*)user_data;
+
+  H2P_DEBUG
+  return 0;
+}
 
 int on_frame_recv_callback(nghttp2_session *session _U_,
                            const nghttp2_frame *frame, void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
 
   H2P_DEBUG
+
   return 0;
 }
 
@@ -94,6 +65,30 @@ int on_data_chunk_recv_callback(nghttp2_session *session _U_,
                                 const uint8_t *data, size_t len,
                                 void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
+  h2p_stream *stream;
+  khiter_t iter;
+  int not_found = 0;
+
+  iter = kh_get(h2_streams_ht, context->streams, stream_id);
+  not_found = (iter == kh_end(context->streams));
+
+  if (not_found) {
+    stream = malloc (sizeof(h2p_stream));
+    stream->id = stream_id;
+    stream->data = malloc (len);
+    memcpy(stream->data, data, len);
+    stream->size = len;
+    stream->need_decode = 0; //!TODO: ...
+
+  } else {
+    stream = kh_value(context->streams, iter);
+    if (stream->id != stream_id) {
+      LOG_AND_RETURN("Hash table corrupted!\n", -1)
+    }
+    stream->data = realloc(stream->data, len + stream->size);
+    memcpy(stream->data + stream->size, data, len);
+    stream->size += len;
+  }
 
   H2P_DEBUG
   return 0;
@@ -101,17 +96,6 @@ int on_data_chunk_recv_callback(nghttp2_session *session _U_,
 
 int on_stream_close_callback(nghttp2_session *session, int32_t stream_id,
                              uint32_t error_code, void *user_data) {
-  h2p_context *context = (h2p_context*)user_data;
-
-  H2P_DEBUG
-  return 0;
-}
-
-int on_header_callback(nghttp2_session *session _U_,
-                              const nghttp2_frame *frame, const uint8_t *name,
-                              size_t namelen, const uint8_t *value,
-                              size_t valuelen, uint8_t flags _U_,
-                              void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
 
   H2P_DEBUG
@@ -154,21 +138,6 @@ int h2p_init(h2p_callbacks *callbacks, /*h2p_direction direction,*/
   *connection = malloc (sizeof(h2p_context));
   (*connection)->callbacks = callbacks;
   status = nghttp2_session_callbacks_new(&ngh2_callbacks);
-
-  // send
-  nghttp2_session_callbacks_set_send_callback(ngh2_callbacks, send_callback);
-
-  // send data
-  nghttp2_session_callbacks_set_send_data_callback(ngh2_callbacks,
-                                                   send_data_callback);
-
-  // frame send
-  nghttp2_session_callbacks_set_on_frame_send_callback(ngh2_callbacks,
-                                                       on_frame_send_callback);
-
-  // before frame send
-  nghttp2_session_callbacks_set_before_frame_send_callback(ngh2_callbacks,
-                                                    before_frame_send_callback);
 
   // recv 
   //nghttp2_session_callbacks_set_recv_callback(ngh2_callbacks, recv_callback);
@@ -215,6 +184,8 @@ int h2p_init(h2p_callbacks *callbacks, /*h2p_direction direction,*/
   
   nghttp2_session_callbacks_del (ngh2_callbacks);
 
+  (*connection)->streams = kh_init(h2_streams_ht);
+
   return status;
 }
 
@@ -259,7 +230,7 @@ void deflate(nghttp2_hd_deflater *deflater,
   rv = nghttp2_hd_deflate_hd(deflater, buf, buflen, nva, nvlen);
 
   if (rv < 0) {
-    printf("ERROR: %s.\n", nghttp2_strerror(nbytes));
+    printf("ERROR: %s.\n", nghttp2_strerror(rv));
     free(buf);
     return;
   }

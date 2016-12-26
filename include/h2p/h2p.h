@@ -103,11 +103,22 @@ typedef struct {
                            h2p_frame data);
 } h2p_callbacks;
 
+typedef struct 
+{
+  uint32_t  id;
+  uint8_t   *data; /* Not 0-terminated C-string! You must to use .size! */
+  size_t    size;
+  uint8_t   need_decode; /* Just 0 or 1 if need or not to decode. */
+} h2p_stream;
+
+KHASH_MAP_INIT_INT(h2_streams_ht, h2p_stream*)
+
 struct h2p_context {
-    h2p_callbacks         *callbacks;
-    nghttp2_session       *session;
-    nghttp2_hd_deflater   *deflater;
-    nghttp2_hd_inflater   *inflater;
+  h2p_callbacks           *callbacks;
+  nghttp2_session         *session;
+  nghttp2_hd_deflater     *deflater;
+  nghttp2_hd_inflater     *inflater;
+  khash_t(h2_streams_ht)  *streams;
 };
 
 /*
