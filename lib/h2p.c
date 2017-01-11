@@ -23,6 +23,13 @@ int inflate_header_block(nghttp2_hd_inflater *inflater, uint8_t *in,
                          size_t inlen, int final);
 
 
+void stream_destroy(h2p_stream *stream) {
+  if (!stream) return;
+
+  free(stream->data);
+  free(stream);
+}
+
 int on_begin_frame_callback(nghttp2_session *session,
                             const nghttp2_frame_hd *hd,
                             void *user_data) {
@@ -158,15 +165,23 @@ int on_stream_close_callback(nghttp2_session *session, int32_t stream_id,
     LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
   } else {
     stream = kh_value(context->streams, iter);
+
     if (stream->id != stream_id) {
+      stream_destroy (stream);
+      kh_del(h2_streams_ht, context->streams, iter);
       LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
     }
-    // context->
 
-    // stream->data = realloc(stream->data, len + stream->size);
-    // memcpy(stream->data + stream->size, data, len);
-    //stream->size += len;
+    if (stream->need_decode) {
+      // DEFLATE(...)
+      ;
+    }
+
+    // RST_STREAM 
   }
+
+  stream_destroy (stream);
+  kh_del(h2_streams_ht, context->streams, iter);
   return 0;
 }
 
@@ -283,8 +298,24 @@ int h2p_input(h2p_context *connection, /* h2p_direction direction, */
 }
 
 
-int h2p_free(h2p_context *connection)  {
-    return 0;
+int h2p_free(h2p_context *context)  {
+  khiter_t iter;
+
+  if (context == NULL) return -1;
+
+  for (iter = kh_begin(context->streams); iter != kh_end(context->streams); ++iter) {
+    if (kh_exist(context->streams, iter)) {
+      stream_destroy (kh_value(context->streams, iter));
+     // kh_del(h2_streams_ht, context->streams, iter);
+    }
+  }
+
+  kh_destroy(h2_streams_ht, context->streams);
+  nghttp2_session_del(context->session);
+
+  free(context);
+
+  return 0;
 }
 
 // 

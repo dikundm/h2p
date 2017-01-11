@@ -98,6 +98,7 @@ typedef struct {
    *
    * @context     - h2p_context object;
    * @stream_id   - actual HTTP2 stream ID;
+   * @data        - data frame;
    * @rst_stream  - H2P_END_STREAM when stream is finished, or 
    *                is reset if H2P_RST_STREAM.
    */
