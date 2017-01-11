@@ -45,6 +45,8 @@ typedef enum {
 
 typedef struct h2p_context h2p_context;
 
+typedef struct h2p_frame_data h2p_frame_data;
+
 /**
  * @struct h2p_callbacks
  *
@@ -61,7 +63,7 @@ typedef struct {
    * @user_data   - attach for this session;
    */
   void (*h2_frame)(h2p_context *context, uint32_t stream_id,
-                   h2p_frame_type type, h2p_frame frame);
+                   h2p_frame_type type, const h2p_frame *frame);
 
   /**
    * @funcmember h2_headers
@@ -71,7 +73,7 @@ typedef struct {
    * @headers     - headers frame (after un-HPACK);
    */
   void (*h2_headers)(h2p_context *context, uint32_t stream_id,
-                     h2p_frame headers);
+                     const h2p_frame *headers);
 
   /**
    * @funcmember h2_data_started
@@ -79,7 +81,7 @@ typedef struct {
    * @context     - h2p_context object;
    * @stream_id   - actual HTTP2 stream ID;
    */
-  void (*h2_data_started)(h2p_context *context, uint32_t stream_id);
+  int (*h2_data_started)(h2p_context *context, uint32_t stream_id);
 
   /**
    * @funcmember h2_data
@@ -89,7 +91,7 @@ typedef struct {
    * @data        - data frame;
    */
   void (*h2_data)(h2p_context *context, uint32_t stream_id,
-                  h2p_frame data);
+                  const h2p_frame_data *data);
 
   /**
    * @funcmember h2_data_finished
@@ -100,14 +102,20 @@ typedef struct {
    *                is reset if H2P_RST_STREAM.
    */
   void (*h2_data_finished)(h2p_context *context, uint32_t stream_id,
-                           h2p_frame data);
+                           const h2p_frame *data);
 } h2p_callbacks;
+
+struct h2p_frame_data
+{
+  const uint8_t *data; /* Not 0-terminated C-string! You must to use .size! */
+  size_t        size;
+};
 
 typedef struct 
 {
-  uint32_t  id;
   uint8_t   *data; /* Not 0-terminated C-string! You must to use .size! */
   size_t    size;
+  uint32_t  id;
   uint8_t   need_decode; /* Just 0 or 1 if need or not to decode. */
 } h2p_stream;
 
@@ -116,9 +124,11 @@ KHASH_MAP_INIT_INT(h2_streams_ht, h2p_stream*)
 struct h2p_context {
   h2p_callbacks           *callbacks;
   nghttp2_session         *session;
+  khash_t(h2_streams_ht)  *streams;
+  h2p_frame_type          last_frame_type;
+  int32_t                 last_stream_id;
   nghttp2_hd_deflater     *deflater;
   nghttp2_hd_inflater     *inflater;
-  khash_t(h2_streams_ht)  *streams;
 };
 
 /*

@@ -22,9 +22,27 @@ void deflate(nghttp2_hd_deflater *deflater,
 int inflate_header_block(nghttp2_hd_inflater *inflater, uint8_t *in,
                          size_t inlen, int final);
 
+
 int on_begin_frame_callback(nghttp2_session *session,
                             const nghttp2_frame_hd *hd,
                             void *user_data) {
+  h2p_context *context = (h2p_context*)user_data;
+  h2p_frame_type frame_type;
+  int32_t stream_id;
+
+  H2P_DEBUG
+
+  context->last_frame_type = hd->type;
+  context->last_stream_id = hd->stream_id;
+
+  //context->callbacks->h2_frame(context, last_stream_id, last_frame_type, NULL);
+
+  return 0;
+}
+
+int on_begin_headers_callback(nghttp2_session *session _U_,
+                              const nghttp2_frame *frame,
+                              void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
 
   H2P_DEBUG
@@ -45,18 +63,30 @@ int on_header_callback(nghttp2_session *session _U_,
 int on_frame_recv_callback(nghttp2_session *session _U_,
                            const nghttp2_frame *frame, void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
+  nghttp2_frame_hd *hd = (nghttp2_frame_hd *)frame;
 
   H2P_DEBUG
 
-  return 0;
-}
+  if (context->last_stream_id != -1 && context->last_frame_type != -1) {
+    
+    context->callbacks->h2_frame(context,
+                                context->last_stream_id,
+                                context->last_frame_type,
+                                frame);
 
-int on_begin_headers_callback(nghttp2_session *session _U_,
-                              const nghttp2_frame *frame,
-                              void *user_data) {
-  h2p_context *context = (h2p_context*)user_data;
+    if (context->last_frame_type != hd->type || 
+        context->last_stream_id != hd->stream_id) {
 
-  H2P_DEBUG
+      context->callbacks->h2_frame(context,
+                                hd->stream_id,
+                                hd->type,
+                                frame);
+    }
+  }
+
+  context->last_stream_id = -1;
+  context->last_frame_type = -1;
+
   return 0;
 }
 
@@ -65,42 +95,82 @@ int on_data_chunk_recv_callback(nghttp2_session *session _U_,
                                 const uint8_t *data, size_t len,
                                 void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
+  h2p_frame_data stream_data;
   h2p_stream *stream;
   khiter_t iter;
-  int not_found = 0;
+  int not_found = 0, push_ret = 0;
 
+  H2P_DEBUG
+  
   iter = kh_get(h2_streams_ht, context->streams, stream_id);
   not_found = (iter == kh_end(context->streams));
 
   if (not_found) {
     stream = malloc (sizeof(h2p_stream));
+    iter = kh_put(h2_streams_ht, context->streams, stream_id, &push_ret);
+    kh_value(context->streams, iter) = stream;
+
     stream->id = stream_id;
     stream->data = malloc (len);
     memcpy(stream->data, data, len);
     stream->size = len;
-    stream->need_decode = 0; //!TODO: ...
+    stream->need_decode = 0;
+
+    if (context->callbacks->h2_data_started(context, stream->id)) {
+      stream->need_decode = 1;
+    }
+
+    context->callbacks->h2_data(context, stream->id,
+                                (h2p_frame_data *)stream);
 
   } else {
     stream = kh_value(context->streams, iter);
     if (stream->id != stream_id) {
-      LOG_AND_RETURN("Hash table corrupted!\n", -1)
+      LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
     }
+
     stream->data = realloc(stream->data, len + stream->size);
     memcpy(stream->data + stream->size, data, len);
     stream->size += len;
+
+    stream_data.data = data;
+    stream_data.size = len;
+
+    context->callbacks->h2_data(context, stream->id, &stream_data);
   }
 
-  H2P_DEBUG
   return 0;
 }
 
 int on_stream_close_callback(nghttp2_session *session, int32_t stream_id,
                              uint32_t error_code, void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
-
+  h2p_stream *stream;
+  khiter_t iter;
+  int not_found = 0;
+  
   H2P_DEBUG
+  
+  iter = kh_get(h2_streams_ht, context->streams, stream_id);
+  not_found = (iter == kh_end(context->streams));
+
+  if (not_found) {
+    LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
+  } else {
+    stream = kh_value(context->streams, iter);
+    if (stream->id != stream_id) {
+      LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
+    }
+    // context->
+
+    // stream->data = realloc(stream->data, len + stream->size);
+    // memcpy(stream->data + stream->size, data, len);
+    //stream->size += len;
+  }
   return 0;
 }
+
+#if 0
 
 int on_invalid_header_callback(
     nghttp2_session *session, const nghttp2_frame *frame, const uint8_t *name,
@@ -122,12 +192,15 @@ int on_invalid_frame_recv_callback(nghttp2_session *session,
   return 0;
 }
 
+#endif
+
 int error_callback(nghttp2_session *session, const char *msg,
                    size_t len, void *user_data) {
   H2P_DEBUG;
   printf ("%s", msg);
   return 0;
 }
+
 
 int h2p_init(h2p_callbacks *callbacks, /*h2p_direction direction,*/
              h2p_context **connection) {
@@ -151,8 +224,10 @@ int h2p_init(h2p_callbacks *callbacks, /*h2p_direction direction,*/
     ngh2_callbacks, on_frame_recv_callback);
 
   // invalid frame recv
+#if 0
   nghttp2_session_callbacks_set_on_invalid_frame_recv_callback (
     ngh2_callbacks, on_invalid_frame_recv_callback);
+#endif
 
   // data chunck recv
   nghttp2_session_callbacks_set_on_data_chunk_recv_callback(
@@ -189,6 +264,7 @@ int h2p_init(h2p_callbacks *callbacks, /*h2p_direction direction,*/
   return status;
 }
 
+
 int h2p_input(h2p_context *connection, /* h2p_direction direction, */
               unsigned char *buffer, size_t len) {
   int nbytes;
@@ -205,6 +281,7 @@ int h2p_input(h2p_context *connection, /* h2p_direction direction, */
 
   return 0;
 }
+
 
 int h2p_free(h2p_context *connection)  {
     return 0;
