@@ -99,9 +99,41 @@ int on_header_callback(nghttp2_session *session _U_,
                        size_t valuelen, uint8_t flags _U_,
                        void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
+  h2p_stream *stream;
+  khiter_t iter;
+  int not_found = 0, push_ret = 0;
+  int32_t stream_id = frame->hd.stream_id;
 
   H2P_DEBUG
+
+  iter = kh_get(h2_streams_ht, context->streams, stream_id);
+  not_found = (iter == kh_end(context->streams));
+
+  if (not_found) {
+    LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
+  }
+
+  stream = kh_value(context->streams, iter);
+
+  if (stream->headers_num > 0) {
+    stream->headers = realloc(stream->headers, (stream->headers_num + 1)
+                              * sizeof(nghttp2_nv));
+  }
+
+  stream->headers[stream->headers_num].name = malloc(namelen);
+  memcpy(stream->headers[stream->headers_num].name,
+         name, namelen);
+  stream->headers[stream->headers_num].namelen = namelen;
   
+  stream->headers[stream->headers_num].value = malloc(valuelen);
+  memcpy(stream->headers[stream->headers_num].value,
+         value, valuelen);
+  stream->headers[stream->headers_num].valuelen = valuelen;
+
+  stream->headers[stream->headers_num].flags = flags;
+
+  stream->headers_num++;
+
   return 0;
 }
 
