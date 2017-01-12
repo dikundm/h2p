@@ -27,7 +27,7 @@ typedef enum {
 } h2p_direction;
 
 /**
- * The frame types in HTTP/2 specification.
+ * The frame types from HTTP/2 specification.
  */
 typedef enum {
   H2P_FRAME_TYPE_DATA           = 0,
@@ -137,8 +137,8 @@ struct h2p_context {
 /*
  * General parser interface:
  */
-int h2p_init(h2p_callbacks *callbacks, /*h2p_direction direction,*/ h2p_context **context);
-int h2p_input(h2p_context *context, /* h2p_direction direction, */ unsigned char *buffer, size_t len);
+int h2p_init(h2p_callbacks *callbacks, h2p_direction direction, h2p_context **context);
+int h2p_input(h2p_context *context, h2p_direction direction, unsigned char *buffer, size_t len);
 int h2p_free(h2p_context *context);
 
 /* Next #ifndef ... #endif section's stuff is grabbed from nghttp2 library.

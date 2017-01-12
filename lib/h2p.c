@@ -124,7 +124,7 @@ int on_header_callback(nghttp2_session *session _U_,
   memcpy(stream->headers[stream->headers_num].name,
          name, namelen);
   stream->headers[stream->headers_num].namelen = namelen;
-  
+
   stream->headers[stream->headers_num].value = malloc(valuelen);
   memcpy(stream->headers[stream->headers_num].value,
          value, valuelen);
@@ -287,7 +287,7 @@ int error_callback(nghttp2_session *session, const char *msg,
 }
 
 
-int h2p_init(h2p_callbacks *callbacks, /*h2p_direction direction,*/
+int h2p_init(h2p_callbacks *callbacks, h2p_direction direction,
              h2p_context **connection) {
   int                         status = 0;
   nghttp2_session             *ngh2_session;
@@ -333,11 +333,11 @@ int h2p_init(h2p_callbacks *callbacks, /*h2p_direction direction,*/
   // error
   nghttp2_session_callbacks_set_error_callback (ngh2_callbacks, error_callback);
 
-#ifdef H2P_INIT_SERVER
-  status = nghttp2_session_server_new(&ngh2_session, ngh2_callbacks, *connection);
-#elif H2P_INIT_CLIENT
-  status = nghttp2_session_server_new(&ngh2_session, ngh2_callbacks, *connection);
-#endif
+  if (direction) {
+    status = nghttp2_session_server_new(&ngh2_session, ngh2_callbacks, *connection);
+  } else {
+    status = nghttp2_session_server_new(&ngh2_session, ngh2_callbacks, *connection);
+  }
 
   (*connection)->session = ngh2_session;
   //(*connection)->ngh2_callbacks = ngh2_callbacks;
@@ -350,7 +350,7 @@ int h2p_init(h2p_callbacks *callbacks, /*h2p_direction direction,*/
 }
 
 
-int h2p_input(h2p_context *connection, /* h2p_direction direction, */
+int h2p_input(h2p_context *connection, h2p_direction direction, 
               unsigned char *buffer, size_t len) {
   int nbytes;
 
