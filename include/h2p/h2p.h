@@ -114,10 +114,12 @@ struct h2p_frame_data
 
 typedef struct 
 {
-  uint8_t   *data; /* Not 0-terminated C-string! You must to use .size! */
-  size_t    size;
-  uint32_t  id;
-  uint8_t   need_decode; /* Just 0 or 1 if need or not to decode. */
+  uint8_t     *data; /* Not 0-terminated C-string! You must to use .size! */
+  size_t      size;
+  uint32_t    id;
+  uint8_t     need_decode; /* Just 0 or 1 if need or not to decode. */
+  nghttp2_nv  *headers;
+  uint        headers_num;
 } h2p_stream;
 
 KHASH_MAP_INIT_INT(h2_streams_ht, h2p_stream*)

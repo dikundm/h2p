@@ -51,8 +51,35 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
                               const nghttp2_frame *frame,
                               void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
+  h2p_stream *stream;
+  khiter_t iter;
+  int not_found = 0, push_ret = 0;
+  int32_t stream_id = frame->hd.stream_id;
 
   H2P_DEBUG
+  
+  iter = kh_get(h2_streams_ht, context->streams, stream_id);
+  not_found = (iter == kh_end(context->streams));
+
+  if (not_found) {
+    stream = malloc (sizeof(h2p_stream));
+    iter = kh_put(h2_streams_ht, context->streams, stream_id, &push_ret);
+    kh_value(context->streams, iter) = stream;
+  } else {
+    stream = kh_value(context->streams, iter);
+    if (stream->id != stream_id) {
+      LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
+    }
+  }
+
+  if (stream->headers == NULL && stream->headers_num != 0) {
+    stream->headers = malloc (sizeof(nghttp2_nv));
+    stream->headers_num = 0;
+  } else {
+    printf ("ERROR: HEADERS frame recursion!\n");
+    return -1;
+  }
+
   return 0;
 }
 
