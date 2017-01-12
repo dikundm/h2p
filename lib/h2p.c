@@ -57,12 +57,22 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
   int32_t stream_id = frame->hd.stream_id;
 
   H2P_DEBUG
+
+  if (frame->hd.type != NGHTTP2_HEADERS) {
+    //context->last_frame_type = -1;
+    //context->last_stream_id = -1;
+    return 0;
+  }
   
   iter = kh_get(h2_streams_ht, context->streams, stream_id);
   not_found = (iter == kh_end(context->streams));
 
   if (not_found) {
+
+    // !
+
     stream = malloc (sizeof(h2p_stream));
+    memset(stream, 0, sizeof(h2p_stream));
     iter = kh_put(h2_streams_ht, context->streams, stream_id, &push_ret);
     kh_value(context->streams, iter) = stream;
   } else {
@@ -77,7 +87,7 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
     stream->headers_num = 0;
   } else {
     printf ("ERROR: HEADERS frame recursion!\n");
-    return -1;
+    return 0;
   }
 
   return 0;
@@ -91,6 +101,7 @@ int on_header_callback(nghttp2_session *session _U_,
   h2p_context *context = (h2p_context*)user_data;
 
   H2P_DEBUG
+  
   return 0;
 }
 
