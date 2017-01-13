@@ -43,6 +43,15 @@ typedef enum {
   H2P_FRAME_TYPE_ALTSVC         = 0x0a
 } h2p_frame_type;
 
+/**
+ * Errors
+ */
+typedef enum {
+  H2P_ERROR_INVALID_HEADER  = 1,
+  H2P_ERROR_INVALID_FRAME
+  H2P_ERROR_MESSAGE
+} h2p_error_type;
+
 typedef struct h2p_context h2p_context;
 
 typedef struct h2p_frame_data h2p_frame_data;
@@ -111,7 +120,7 @@ typedef struct {
    * @context     - h2p_context object;
    * @msg         - error message;
    */
-  void (*h2_error)(h2p_context *context, const char *msg);
+  void (*h2_error)(h2p_context *context, h2p_error_type type, const char *msg);
 } h2p_callbacks;
 
 struct h2p_frame_data
