@@ -104,6 +104,14 @@ typedef struct {
    */
   void (*h2_data_finished)(h2p_context *context, uint32_t stream_id,
                            const h2p_frame *data, uint32_t status);
+
+  /**
+   * @funcmember h2_error
+   *
+   * @context     - h2p_context object;
+   * @msg         - error message;
+   */
+  void (*h2_error)(h2p_context *context, const char *msg);
 } h2p_callbacks;
 
 struct h2p_frame_data
