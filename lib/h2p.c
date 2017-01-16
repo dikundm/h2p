@@ -82,14 +82,6 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
     }
   }
 
-  if (stream->headers == NULL && stream->headers_num != 0) {
-    stream->headers = malloc (sizeof(nghttp2_nv));
-    stream->headers_num = 0;
-  } else {
-    printf ("ERROR: HEADERS frame recursion!\n");
-    return 0;
-  }
-
   return 0;
 }
 
@@ -277,7 +269,7 @@ int on_invalid_frame_recv_callback(nghttp2_session *session,
 
   H2P_DEBUG
 
-  context->callbacks->h2_error(context, H2P_ERROR_INVALID_FRAME, nghttp2_error_code);
+  //context->callbacks->h2_error(context, H2P_ERROR_INVALID_FRAME, nghttp2_error_code);
   return 0;
 }
 

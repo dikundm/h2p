@@ -48,7 +48,7 @@ typedef enum {
  */
 typedef enum {
   H2P_ERROR_INVALID_HEADER  = 1,
-  H2P_ERROR_INVALID_FRAME
+  H2P_ERROR_INVALID_FRAME,
   H2P_ERROR_MESSAGE
 } h2p_error_type;
 
