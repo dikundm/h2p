@@ -82,7 +82,7 @@ typedef struct {
    * @headers     - headers frame (after un-HPACK);
    */
   void (*h2_headers)(h2p_context *context, uint32_t stream_id,
-                     const h2p_frame *headers);
+                     const nghttp2_headers *headers);
 
   /**
    * @funcmember h2_data_started
@@ -135,8 +135,6 @@ typedef struct
   size_t      size;
   uint32_t    id;
   uint8_t     need_decode; /* Just 0 or 1 if need or not to decode. */
-  nghttp2_nv  *headers;
-  uint        headers_num;
 } h2p_stream;
 
 KHASH_MAP_INIT_INT(h2_streams_ht, h2p_stream*)
@@ -147,6 +145,7 @@ struct h2p_context {
   khash_t(h2_streams_ht)  *streams;
   h2p_frame_type          last_frame_type;
   int32_t                 last_stream_id;
+  nghttp2_headers         *headers;
   nghttp2_hd_deflater     *deflater;
   nghttp2_hd_inflater     *inflater;
 };

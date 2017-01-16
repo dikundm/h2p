@@ -106,6 +106,7 @@ int on_header_callback(nghttp2_session *session _U_,
 
   H2P_DEBUG
 
+#if 0
   iter = kh_get(h2_streams_ht, context->streams, stream_id);
   not_found = (iter == kh_end(context->streams));
 
@@ -133,6 +134,7 @@ int on_header_callback(nghttp2_session *session _U_,
   stream->headers[stream->headers_num].flags = flags;
 
   stream->headers_num++;
+#endif
 
   return 0;
 }
@@ -255,7 +257,7 @@ int on_stream_close_callback(nghttp2_session *session, int32_t stream_id,
   return 0;
 }
 
-#if 0
+#if 1
 
 int on_invalid_header_callback(
     nghttp2_session *session, const nghttp2_frame *frame, const uint8_t *name,
@@ -274,6 +276,8 @@ int on_invalid_frame_recv_callback(nghttp2_session *session,
   h2p_context *context = (h2p_context*)user_data;
 
   H2P_DEBUG
+
+  context->callbacks->h2_error(context, H2P_ERROR_INVALID_FRAME, nghttp2_error_code);
   return 0;
 }
 
@@ -281,8 +285,11 @@ int on_invalid_frame_recv_callback(nghttp2_session *session,
 
 int error_callback(nghttp2_session *session, const char *msg,
                    size_t len, void *user_data) {
+  h2p_context *context = (h2p_context*)user_data;
+  
   H2P_DEBUG;
-  printf ("%s", msg);
+  
+  context->callbacks->h2_error(context, H2P_ERROR_MESSAGE, msg);
   return 0;
 }
 
