@@ -146,6 +146,7 @@ struct h2p_context {
   h2p_frame_type          last_frame_type;
   int32_t                 last_stream_id;
   nghttp2_headers         *headers;
+  int32_t                 nvlen;
   nghttp2_hd_deflater     *deflater;
   nghttp2_hd_inflater     *inflater;
 };

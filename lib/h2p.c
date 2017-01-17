@@ -63,7 +63,22 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
     //context->last_stream_id = -1;
     return 0;
   }
-  
+
+  if (context->headers != NULL) {
+    if (context->headers->nvlen != 0) {
+      free(context->headers->nva);
+    }
+    free(context->headers);
+  }
+
+  context->headers = malloc (sizeof(nghttp2_headers));
+  memcpy(context->headers, frame, sizeof(nghttp2_headers));
+
+  context->headers->nva = malloc(context->headers->nvlen *
+                                 sizeof(nghttp2_nv));
+  context->nvlen = context->headers->nvlen;
+
+#if 0  
   iter = kh_get(h2_streams_ht, context->streams, stream_id);
   not_found = (iter == kh_end(context->streams));
 
@@ -81,6 +96,7 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
       LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
     }
   }
+#endif
 
   return 0;
 }
@@ -381,6 +397,13 @@ int h2p_free(h2p_context *context)  {
 
   kh_destroy(h2_streams_ht, context->streams);
   nghttp2_session_del(context->session);
+
+  if (context->headers != NULL) {
+    if (context->headers->nvlen != 0) {
+      free(context->headers->nva);
+    }
+    free(context->headers);
+  }
 
   free(context);
 
