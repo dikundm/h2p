@@ -51,10 +51,6 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
                               const nghttp2_frame *frame,
                               void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
-  h2p_stream *stream;
-  khiter_t iter;
-  int not_found = 0, push_ret = 0;
-  int32_t stream_id = frame->hd.stream_id;
 
   H2P_DEBUG
 
@@ -76,27 +72,7 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
 
   context->headers->nva = malloc(context->headers->nvlen *
                                  sizeof(nghttp2_nv));
-  context->nvlen = context->headers->nvlen;
-
-#if 0  
-  iter = kh_get(h2_streams_ht, context->streams, stream_id);
-  not_found = (iter == kh_end(context->streams));
-
-  if (not_found) {
-
-    // !
-
-    stream = malloc (sizeof(h2p_stream));
-    memset(stream, 0, sizeof(h2p_stream));
-    iter = kh_put(h2_streams_ht, context->streams, stream_id, &push_ret);
-    kh_value(context->streams, iter) = stream;
-  } else {
-    stream = kh_value(context->streams, iter);
-    if (stream->id != stream_id) {
-      LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
-    }
-  }
-#endif
+  context->nvlen = 0;
 
   return 0;
 }
@@ -107,42 +83,20 @@ int on_header_callback(nghttp2_session *session _U_,
                        size_t valuelen, uint8_t flags _U_,
                        void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
-  h2p_stream *stream;
-  khiter_t iter;
-  int not_found = 0, push_ret = 0;
-  int32_t stream_id = frame->hd.stream_id;
 
   H2P_DEBUG
 
-#if 0
-  iter = kh_get(h2_streams_ht, context->streams, stream_id);
-  not_found = (iter == kh_end(context->streams));
+  context->headers->nva[context->nvlen].name = malloc (namelen);
+  memcpy(context->headers->nva[context->nvlen].name, name, namelen);
+  context->headers->nva[context->nvlen].namelen = namelen;
 
-  if (not_found) {
-    LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
-  }
+  context->headers->nva[context->nvlen].value = malloc (valuelen);
+  memcpy(context->headers->nva[context->nvlen].value, value, valuelen);
+  context->headers->nva[context->nvlen].valuelen = valuelen;
 
-  stream = kh_value(context->streams, iter);
+  context->headers->nva[context->nvlen].flags = flags;
 
-  if (stream->headers_num > 0) {
-    stream->headers = realloc(stream->headers, (stream->headers_num + 1)
-                              * sizeof(nghttp2_nv));
-  }
-
-  stream->headers[stream->headers_num].name = malloc(namelen);
-  memcpy(stream->headers[stream->headers_num].name,
-         name, namelen);
-  stream->headers[stream->headers_num].namelen = namelen;
-
-  stream->headers[stream->headers_num].value = malloc(valuelen);
-  memcpy(stream->headers[stream->headers_num].value,
-         value, valuelen);
-  stream->headers[stream->headers_num].valuelen = valuelen;
-
-  stream->headers[stream->headers_num].flags = flags;
-
-  stream->headers_num++;
-#endif
+  context->nvlen++;
 
   return 0;
 }
