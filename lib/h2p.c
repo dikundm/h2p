@@ -86,6 +86,10 @@ int on_header_callback(nghttp2_session *session _U_,
 
   H2P_DEBUG
 
+  if (context->headers == NULL) {
+    H2P_DEBUG ("WARNING: Memory for header was not allocated!\n");
+  }
+
   context->headers->nva[context->nvlen].name = malloc (namelen);
   memcpy(context->headers->nva[context->nvlen].name, name, namelen);
   context->headers->nva[context->nvlen].namelen = namelen;
@@ -97,6 +101,18 @@ int on_header_callback(nghttp2_session *session _U_,
   context->headers->nva[context->nvlen].flags = flags;
 
   context->nvlen++;
+
+  if (context->nvlen == context->headers->nvlen) {
+    context->callbacks->h2_headers(context, context->headers->hd.stream_id,
+                                   context->headers);
+  }
+
+  if (context->headers != NULL) {
+    if (context->headers->nvlen != 0) {
+      free(context->headers->nva);
+    }
+    free(context->headers);
+  }
 
   return 0;
 }
