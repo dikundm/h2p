@@ -118,6 +118,7 @@ typedef struct {
    * @funcmember h2_error
    *
    * @context     - h2p_context object;
+   * @type        - error type;
    * @msg         - error message;
    */
   void (*h2_error)(h2p_context *context, h2p_error_type type, const char *msg);
