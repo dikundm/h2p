@@ -112,7 +112,7 @@ typedef struct {
    *                is reset if H2P_RST_STREAM.
    */
   void (*h2_data_finished)(h2p_context *context, uint32_t stream_id,
-                           const h2p_frame *data, uint32_t status);
+                           uint32_t status);
 
   /**
    * @funcmember h2_error

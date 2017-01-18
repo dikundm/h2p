@@ -230,6 +230,8 @@ int on_stream_close_callback(nghttp2_session *session, int32_t stream_id,
     // RST_STREAM 
   }
 
+  context->callbacks->h2_data_finished(context, stream_id, error_code);
+
   stream_destroy (stream);
   kh_del(h2_streams_ht, context->streams, iter);
   return 0;
