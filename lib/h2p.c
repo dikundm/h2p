@@ -51,6 +51,10 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
                               const nghttp2_frame *frame,
                               void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
+  h2p_frame_data stream_data;
+  h2p_stream *stream;
+  khiter_t iter;
+  int not_found = 0, push_ret = 0;
 
   H2P_DEBUG
 
@@ -60,19 +64,28 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
     return 0;
   }
 
-  if (context->headers != NULL) {
-    if (context->headers->nvlen != 0) {
-      free(context->headers->nva);
-    }
-    free(context->headers);
+  iter = kh_get(h2_streams_ht, context->streams, frame->hd.stream_id);
+  not_found = (iter == kh_end(context->streams));
+
+  if (not_found) {
+    LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
+  } else {
+    stream = kh_value(context->streams, iter);
   }
 
-  context->headers = malloc (sizeof(nghttp2_headers));
-  memcpy(context->headers, frame, sizeof(nghttp2_headers));
+  if (stream->headers != NULL) {
+    if (stream->headers->nvlen != 0) {
+      free(stream->headers->nva);
+    }
+    free(stream->headers);
+  }
 
-  context->headers->nva = malloc(context->headers->nvlen *
+  stream->headers = malloc (sizeof(nghttp2_headers));
+  memcpy(stream->headers, frame, sizeof(nghttp2_headers));
+
+  stream->headers->nva = malloc(stream->headers->nvlen *
                                  sizeof(nghttp2_nv));
-  context->nvlen = 0;
+  stream->nvlen = 0;
 
   return 0;
 }
@@ -369,14 +382,14 @@ int h2p_free(h2p_context *context)  {
 
   kh_destroy(h2_streams_ht, context->streams);
   nghttp2_session_del(context->session);
-
+#if 0
   if (context->headers != NULL) {
     if (context->headers->nvlen != 0) {
       free(context->headers->nva);
     }
     free(context->headers);
   }
-
+#endif
   free(context);
 
   return 0;
