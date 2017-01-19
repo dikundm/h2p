@@ -96,35 +96,48 @@ int on_header_callback(nghttp2_session *session _U_,
                        size_t valuelen, uint8_t flags _U_,
                        void *user_data) {
   h2p_context *context = (h2p_context*)user_data;
+  h2p_frame_data stream_data;
+  h2p_stream *stream;
+  khiter_t iter;
+  int not_found = 0, push_ret = 0;
 
   H2P_DEBUG
 
-  if (context->headers == NULL) {
+  iter = kh_get(h2_streams_ht, context->streams, frame->hd.stream_id);
+  not_found = (iter == kh_end(context->streams));
+
+  if (not_found) {
+    LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
+  } else {
+    stream = kh_value(context->streams, iter);
+  }
+
+  if (stream->headers == NULL) {
     H2P_DEBUG ("WARNING: Memory for header was not allocated!\n");
   }
 
-  context->headers->nva[context->nvlen].name = malloc (namelen);
-  memcpy(context->headers->nva[context->nvlen].name, name, namelen);
-  context->headers->nva[context->nvlen].namelen = namelen;
+  stream->headers->nva[stream->nvlen].name = malloc (namelen);
+  memcpy(stream->headers->nva[stream->nvlen].name, name, namelen);
+  stream->headers->nva[stream->nvlen].namelen = namelen;
 
-  context->headers->nva[context->nvlen].value = malloc (valuelen);
-  memcpy(context->headers->nva[context->nvlen].value, value, valuelen);
-  context->headers->nva[context->nvlen].valuelen = valuelen;
+  stream->headers->nva[stream->nvlen].value = malloc (valuelen);
+  memcpy(stream->headers->nva[stream->nvlen].value, value, valuelen);
+  stream->headers->nva[stream->nvlen].valuelen = valuelen;
 
-  context->headers->nva[context->nvlen].flags = flags;
+  stream->headers->nva[stream->nvlen].flags = flags;
 
-  context->nvlen++;
+  stream->nvlen++;
 
-  if (context->nvlen == context->headers->nvlen) {
-    context->callbacks->h2_headers(context, context->headers->hd.stream_id,
-                                   context->headers);
+  if (stream->nvlen == stream->headers->nvlen) {
+    context->callbacks->h2_headers(context, stream->headers->hd.stream_id,
+                                   stream->headers);
   }
 
-  if (context->headers != NULL) {
-    if (context->headers->nvlen != 0) {
-      free(context->headers->nva);
+  if (stream->headers != NULL) {
+    if (stream->headers->nvlen != 0) {
+      free(stream->headers->nva);
     }
-    free(context->headers);
+    free(stream->headers);
   }
 
   return 0;
