@@ -59,8 +59,8 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
   H2P_DEBUG
 
   if (frame->hd.type != NGHTTP2_HEADERS) {
-    //context->last_frame_type = -1;
-    //context->last_stream_id = -1;
+    context->last_frame_type = -1;
+    context->last_stream_id = -1;
     return 0;
   }
 
