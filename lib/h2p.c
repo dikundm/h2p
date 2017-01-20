@@ -26,6 +26,13 @@ int inflate_header_block(nghttp2_hd_inflater *inflater, uint8_t *in,
 void stream_destroy(h2p_stream *stream) {
   if (!stream) return;
 
+  if (stream->headers != NULL) {
+    if (stream->headers->nvlen != 0) {
+      free(stream->headers->nva);
+    }
+    free(stream->headers);
+  }
+
   free(stream->data);
   free(stream);
 }
@@ -395,6 +402,7 @@ int h2p_free(h2p_context *context)  {
 
   kh_destroy(h2_streams_ht, context->streams);
   nghttp2_session_del(context->session);
+
 #if 0
   if (context->headers != NULL) {
     if (context->headers->nvlen != 0) {
@@ -403,6 +411,7 @@ int h2p_free(h2p_context *context)  {
     free(context->headers);
   }
 #endif
+
   free(context);
 
   return 0;
