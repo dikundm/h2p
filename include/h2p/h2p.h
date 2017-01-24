@@ -148,8 +148,6 @@ struct h2p_context {
   khash_t(h2_streams_ht)  *streams;
   h2p_frame_type          last_frame_type;
   int32_t                 last_stream_id;
-  nghttp2_hd_deflater     *deflater;
-  nghttp2_hd_inflater     *inflater;
 };
 
 /*
