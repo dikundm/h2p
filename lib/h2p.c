@@ -15,13 +15,6 @@
 #define H2P_INIT_SERVER 1
 #define H2P_INIT_CLIENT (!H2P_INIT_SERVER)
 
-void deflate(nghttp2_hd_deflater *deflater,
-             nghttp2_hd_inflater *inflater, const nghttp2_nv *const nva,
-             size_t nvlen);
-
-int inflate_header_block(nghttp2_hd_inflater *inflater, uint8_t *in,
-                         size_t inlen, int final);
-
 
 void stream_destroy(h2p_stream *stream) {
   if (!stream) return;
