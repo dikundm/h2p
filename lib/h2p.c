@@ -19,8 +19,12 @@
   {                                                                            \
     (uint8_t *)NAME, (uint8_t *)VALUE, sizeof(NAME) - 1, VALUELEN,             \
         NGHTTP2_NV_FLAG_NONE                                                   \
-  }
 
+#define MAKE_NV_3(NAME, VALUE)                                                  \
+  {                                                                            \
+    (uint8_t *)NAME, (uint8_t *)VALUE, sizeof(NAME) - 1, sizeof(VALUE) - 1,    \
+        NGHTTP2_NV_FLAG_NONE                                                   \
+  }
 
 void stream_destroy(h2p_stream *stream) {
   if (!stream) return;
