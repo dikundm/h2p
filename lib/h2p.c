@@ -15,6 +15,12 @@
 #define H2P_INIT_SERVER 1
 #define H2P_INIT_CLIENT (!H2P_INIT_SERVER)
 
+#define MAKE_NV_2(NAME, VALUE, VALUELEN)                                         \
+  {                                                                            \
+    (uint8_t *)NAME, (uint8_t *)VALUE, sizeof(NAME) - 1, VALUELEN,             \
+        NGHTTP2_NV_FLAG_NONE                                                   \
+  }
+
 
 void stream_destroy(h2p_stream *stream) {
   if (!stream) return;
