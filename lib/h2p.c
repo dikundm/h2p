@@ -15,18 +15,6 @@
 #define H2P_INIT_SERVER 1
 #define H2P_INIT_CLIENT (!H2P_INIT_SERVER)
 
-#define MAKE_NV_3(NAME, VALUE, VALUELEN)                                       \
-  {                                                                            \
-    (uint8_t *)NAME, (uint8_t *)VALUE, sizeof(NAME) - 1, VALUELEN,             \
-        NGHTTP2_NV_FLAG_NONE                                                   \
-  }
-
-#define MAKE_NV_2(NAME, VALUE)                                                 \
-  {                                                                            \
-    (uint8_t *)NAME, (uint8_t *)VALUE, sizeof(NAME) - 1, sizeof(VALUE) - 1,    \
-        NGHTTP2_NV_FLAG_NONE                                                   \
-  }
-
 void stream_destroy(h2p_stream *stream) {
   if (!stream) return;
 
@@ -421,20 +409,31 @@ int h2p_free(h2p_context *context)  {
   return 0;
 }
 
-#define ARRLEN(x) (sizeof(x) / sizeof(x[0]))
-
 typedef struct {
-  uint8_t *data;
-  size_t  len;
+  uint8_t       *data;
+  size_t        len;
+  unsigned int  iteration;
 } util_return_data;
 
 ssize_t _util_send_callback(nghttp2_session *session _U_, const uint8_t *data,
                              size_t length, int flags _U_, void *user_data) {
   util_return_data *rd = (util_return_data *)user_data;
 
-  rd->len = length;
-  rd->data = malloc (length);
-  memcpy (rd->data, data, length);
+  // Skip 24 bytes client magic.
+  if (rd->iteration == 1) {
+
+    rd->len = length;
+    rd->data = malloc (length);
+    memcpy (rd->data, data, length);
+
+  } else if (rd->iteration > 1) {
+
+    rd->data = realloc (rd->data, rd->len + length);
+    memcpy (rd->data + rd->len, data, length);
+    rd->len += length;
+  }
+
+  rd->iteration++;
 
   return (ssize_t)length;
 }
@@ -443,18 +442,40 @@ uint8_t *h2p_raw_settings(nghttp2_settings_entry *iv, int iv_num,
                           size_t *len) {
   nghttp2_session             *session;
   nghttp2_session_callbacks   *callbacks;
-  util_return_data            return_data;
-  int rv;
+  util_return_data            return_data = {0,0,0};
+  int status;
 
   nghttp2_session_callbacks_new(&callbacks);
   nghttp2_session_callbacks_set_send_callback(callbacks, _util_send_callback);
   nghttp2_session_client_new(&session, callbacks, &return_data);
   nghttp2_session_callbacks_del(callbacks);
 
-  rv = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, iv,
+  status = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, iv,
                                iv_num);
 
-  if (rv != 0) return NULL;
+  if (status != 0) return NULL;
+
+  nghttp2_session_send(session);
+
+  nghttp2_session_del(session);
+  
+  *len = return_data.len;
+  return return_data.data;
+}
+
+uint8_t *h2p_raw_headers(int32_t stream_id, nghttp2_nv *headers, 
+                         int headers_num, size_t *len) {
+  nghttp2_session             *session;
+  nghttp2_session_callbacks   *callbacks;
+  util_return_data            return_data = {0,0,0};
+
+  nghttp2_session_callbacks_new(&callbacks);
+  nghttp2_session_callbacks_set_send_callback(callbacks, _util_send_callback);
+  nghttp2_session_client_new(&session, callbacks, &return_data);
+  nghttp2_session_callbacks_del(callbacks);
+
+  nghttp2_submit_headers(session, NGHTTP2_FLAG_NONE, stream_id, NULL,
+                              headers, headers_num, NULL);
 
   nghttp2_session_send(session);
 

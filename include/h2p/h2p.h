@@ -153,8 +153,10 @@ struct h2p_context {
 /*
  * General parser interface:
  */
-int h2p_init(h2p_callbacks *callbacks, h2p_direction direction, h2p_context **context);
-int h2p_input(h2p_context *context, h2p_direction direction, unsigned char *buffer, size_t len);
+int h2p_init(h2p_callbacks *callbacks, h2p_direction direction,
+             h2p_context **context);
+int h2p_input(h2p_context *context, h2p_direction direction,
+              unsigned char *buffer, size_t len);
 int h2p_free(h2p_context *context);
 
 
@@ -162,7 +164,22 @@ int h2p_free(h2p_context *context);
 
 uint8_t *h2p_raw_settings(nghttp2_settings_entry *iv, int iv_num,
                           size_t *len);
-//size_t h2p_raw_headers(stream_id, struct headers);
+
+#define MAKE_NV_3(NAME, VALUE, VALUELEN)                                       \
+  {                                                                            \
+    (uint8_t *)NAME, (uint8_t *)VALUE, sizeof(NAME) - 1, VALUELEN,             \
+        NGHTTP2_NV_FLAG_NONE                                                   \
+  }
+
+#define MAKE_NV_2(NAME, VALUE)                                                 \
+  {                                                                            \
+    (uint8_t *)NAME, (uint8_t *)VALUE, sizeof(NAME) - 1, sizeof(VALUE) - 1,    \
+        NGHTTP2_NV_FLAG_NONE                                                   \
+  }
+  
+uint8_t *h2p_raw_headers(int32_t stream_id, nghttp2_nv *headers,
+                         int headers_num, size_t *len);
+//(stream_id, struct headers);
 //size_t h2p_raw_data(stream_id, const char *, size_t);
 
 /* Next #ifndef ... #endif section's stuff is grabbed from nghttp2 library.
