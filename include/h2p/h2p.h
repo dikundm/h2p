@@ -157,6 +157,14 @@ int h2p_init(h2p_callbacks *callbacks, h2p_direction direction, h2p_context **co
 int h2p_input(h2p_context *context, h2p_direction direction, unsigned char *buffer, size_t len);
 int h2p_free(h2p_context *context);
 
+
+#define H2_MAGIC "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
+
+uint8_t *h2p_raw_settings(nghttp2_settings_entry *iv, int iv_num,
+                          size_t *len);
+//size_t h2p_raw_headers(stream_id, struct headers);
+//size_t h2p_raw_data(stream_id, const char *, size_t);
+
 /* Next #ifndef ... #endif section's stuff is grabbed from nghttp2 library.
  */
 
