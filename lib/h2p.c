@@ -10,7 +10,8 @@
 #include <stdlib.h>
 
 #define H2P_DEBUG printf("h2p: %s\n", __FUNCTION__);
-#define LOG_AND_RETURN(m, r) { printf("h2p: %s\n", m); return r; } 
+#define LOG_AND_RETURN(m, r) { printf("h2p: %s\nReturn from %s.\n", m,\
+                              __FUNCTION__); return r; } 
 
 #define H2P_INIT_SERVER 1
 #define H2P_INIT_CLIENT (!H2P_INIT_SERVER)
@@ -54,6 +55,7 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
   h2p_stream *stream;
   khiter_t iter;
   int not_found = 0, push_ret = 0;
+  int32_t stream_id = frame->hd.stream_id;
 
   H2P_DEBUG
 
@@ -67,7 +69,14 @@ int on_begin_headers_callback(nghttp2_session *session _U_,
   not_found = (iter == kh_end(context->streams));
 
   if (not_found) {
-    LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
+    //LOG_AND_RETURN("ERROR: Stream table corrupted!\n", -1)
+    stream = malloc (sizeof(h2p_stream));
+    memset(stream, 0, sizeof(h2p_stream));
+
+    iter = kh_put(h2_streams_ht, context->streams, stream_id, &push_ret);
+    kh_value(context->streams, iter) = stream;
+
+    stream->id = stream_id;
   } else {
     stream = kh_value(context->streams, iter);
   }
@@ -478,6 +487,22 @@ uint8_t *h2p_raw_headers(int32_t stream_id, nghttp2_nv *headers,
                               headers, headers_num, NULL);
 
   nghttp2_session_send(session);
+
+  nghttp2_session_del(session);
+  
+  *len = return_data.len;
+  return return_data.data;
+}
+
+uint8_t *h2p_raw_data(int32_t stream_id, const uint8_t *data, size_t *len) {
+  nghttp2_session             *session;
+  nghttp2_session_callbacks   *callbacks;
+  util_return_data            return_data = {0,0,0};
+
+  nghttp2_session_callbacks_new(&callbacks);
+  nghttp2_session_callbacks_set_send_callback(callbacks, _util_send_callback);
+  nghttp2_session_server_new(&session, callbacks, &return_data);
+  nghttp2_session_callbacks_del(callbacks);
 
   nghttp2_session_del(session);
   
