@@ -176,11 +176,11 @@ uint8_t *h2p_raw_settings(nghttp2_settings_entry *iv, int iv_num,
     (uint8_t *)NAME, (uint8_t *)VALUE, sizeof(NAME) - 1, sizeof(VALUE) - 1,    \
         NGHTTP2_NV_FLAG_NONE                                                   \
   }
-  
+
 uint8_t *h2p_raw_headers(int32_t stream_id, nghttp2_nv *headers,
                          int headers_num, size_t *len);
-//(stream_id, struct headers);
-//size_t h2p_raw_data(stream_id, const char *, size_t);
+uint8_t *h2p_raw_data(int32_t stream_id, uint8_t *data, size_t data_size,
+                      size_t *len);
 
 /* Next #ifndef ... #endif section's stuff is grabbed from nghttp2 library.
  */

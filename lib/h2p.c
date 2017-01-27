@@ -460,7 +460,7 @@ uint8_t *h2p_raw_settings(nghttp2_settings_entry *iv, int iv_num,
   nghttp2_session_callbacks_del(callbacks);
 
   status = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, iv,
-                               iv_num);
+                                  iv_num);
 
   if (status != 0) return NULL;
 
@@ -494,15 +494,82 @@ uint8_t *h2p_raw_headers(int32_t stream_id, nghttp2_nv *headers,
   return return_data.data;
 }
 
-uint8_t *h2p_raw_data(int32_t stream_id, const uint8_t *data, size_t *len) {
+typedef struct {
+  uint8_t *data;
+  size_t  len;
+  size_t  offset;
+} util_data_source;
+
+#define MIN(x,y) (x < y ? x : y)
+#define MAX(x,y) (x > y ? x : y)
+
+ssize_t _util_read_callback(nghttp2_session *session _U_,
+                            int32_t stream_id _U_, uint8_t *buf,
+                            size_t length, uint32_t *data_flags,
+                            nghttp2_data_source *source,
+                            void *user_data _U_) {
+  //H2P_DEBUG
+
+  util_data_source *ds = source->ptr;
+  ssize_t nbytes;
+
+  nbytes = MIN(ds->len - ds->offset, length);
+
+  if (nbytes == 0) return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
+
+  memcpy(buf, ds->data + ds->offset, nbytes);
+
+  ds->offset += nbytes;
+
+  if (ds->offset == ds->len) {
+    *data_flags |= NGHTTP2_DATA_FLAG_EOF;
+  }
+
+  return nbytes;
+}
+
+uint8_t *h2p_raw_data(int32_t stream_id, uint8_t *data, size_t data_size,
+                      size_t *len) {
+
   nghttp2_session             *session;
   nghttp2_session_callbacks   *callbacks;
   util_return_data            return_data = {0,0,0};
+  int                         rv;
+  nghttp2_data_provider       data_prd;
+  util_data_source            data_source;
+  int32_t                     sid;
+
+  data_source.data = data;
+  data_source.len = data_size;
+  data_source.offset = 0;
+
+  data_prd.source.ptr = &data_source;
+  data_prd.read_callback = _util_read_callback;
 
   nghttp2_session_callbacks_new(&callbacks);
   nghttp2_session_callbacks_set_send_callback(callbacks, _util_send_callback);
-  nghttp2_session_server_new(&session, callbacks, &return_data);
+  nghttp2_session_client_new(&session, callbacks, &return_data);
   nghttp2_session_callbacks_del(callbacks);
+
+  nghttp2_nv hdrs;
+
+  sid = nghttp2_submit_headers(session, NGHTTP2_FLAG_NONE, -1, NULL,
+                               &hdrs, 0, NULL);
+
+  nghttp2_session_send(session);
+
+  if (return_data.data != NULL) free(return_data.data);
+  return_data.data = NULL;
+  return_data.len = 0;
+  return_data.iteration = 1;
+
+  rv = nghttp2_submit_data(session, NGHTTP2_FLAG_NONE, sid, &data_prd);
+  if (rv != 0) {
+    printf("Fatal error: %s", nghttp2_strerror(rv));
+    return NULL;
+  }
+
+  nghttp2_session_send(session);
 
   nghttp2_session_del(session);
   
