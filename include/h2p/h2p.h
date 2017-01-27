@@ -137,7 +137,7 @@ typedef struct
   uint32_t          id;
   uint8_t           need_decode; /* Just 0 or 1 if need or not to decode. */
   nghttp2_headers   *headers;
-  int32_t           nvlen;
+  size_t            nvlen;
 } h2p_stream;
 
 KHASH_MAP_INIT_INT(h2_streams_ht, h2p_stream*)

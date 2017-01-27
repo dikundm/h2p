@@ -136,16 +136,17 @@ int on_header_callback(nghttp2_session *session _U_,
 
   stream->nvlen++;
 
+  printf ("%ld %ld\n", stream->nvlen, stream->headers->nvlen);
+
   if (stream->nvlen == stream->headers->nvlen) {
     context->callbacks->h2_headers(context, stream->headers->hd.stream_id,
                                    stream->headers);
-  }
-
-  if (stream->headers != NULL) {
-    if (stream->headers->nvlen != 0) {
-      free(stream->headers->nva);
+    if (stream->headers != NULL) {
+      if (stream->headers->nvlen != 0) {
+        free(stream->headers->nva);
+      }
+      free(stream->headers);
     }
-    free(stream->headers);
   }
 
   return 0;
@@ -291,6 +292,8 @@ int on_invalid_frame_recv_callback(nghttp2_session *session,
 
   H2P_DEBUG
 
+  printf ("INVALID FRAME : %d\n",lib_error_code);
+
   //context->callbacks->h2_error(context, H2P_ERROR_INVALID_FRAME, nghttp2_error_code);
   return 0;
 }
@@ -305,6 +308,12 @@ int error_callback(nghttp2_session *session, const char *msg,
   
   context->callbacks->h2_error(context, H2P_ERROR_MESSAGE, msg);
   return 0;
+}
+
+ssize_t send_callback(nghttp2_session *session _U_, const uint8_t *data,
+                             size_t length, int flags _U_, void *user_data) {
+  H2P_DEBUG
+  return length;
 }
 
 
@@ -330,7 +339,7 @@ int h2p_init(h2p_callbacks *callbacks, h2p_direction direction,
     ngh2_callbacks, on_frame_recv_callback);
 
   // invalid frame recv
-#if 0
+#if 1
   nghttp2_session_callbacks_set_on_invalid_frame_recv_callback (
     ngh2_callbacks, on_invalid_frame_recv_callback);
 #endif
@@ -354,10 +363,12 @@ int h2p_init(h2p_callbacks *callbacks, h2p_direction direction,
   // error
   nghttp2_session_callbacks_set_error_callback (ngh2_callbacks, error_callback);
 
+  nghttp2_session_callbacks_set_send_callback (ngh2_callbacks, send_callback);
+
   if (direction) {
     status = nghttp2_session_server_new(&ngh2_session, ngh2_callbacks, *connection);
   } else {
-    status = nghttp2_session_server_new(&ngh2_session, ngh2_callbacks, *connection);
+    status = nghttp2_session_client_new(&ngh2_session, ngh2_callbacks, *connection);
   }
 
   (*connection)->session = ngh2_session;
@@ -384,6 +395,10 @@ int h2p_input(h2p_context *connection, h2p_direction direction,
   //s = nghttp2_session_send (connection->ngh2_session);
 
   if (nbytes < 0) printf("ERROR: %s.\n", nghttp2_strerror(nbytes));
+
+
+  if (nghttp2_session_want_write(connection->session))
+    nghttp2_session_send(connection->session);
 
   return 0;
 }
