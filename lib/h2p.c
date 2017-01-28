@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 
 #define H2P_DEBUG printf("h2p: %s\n", __FUNCTION__);
 #define LOG_AND_RETURN(m, r) { printf("h2p: %s\nReturn from %s.\n", m,\
@@ -15,6 +16,8 @@
 
 #define H2P_INIT_SERVER 1
 #define H2P_INIT_CLIENT (!H2P_INIT_SERVER)
+
+#define STREAM_ID_OFFSET 5
 
 void stream_destroy(h2p_stream *stream) {
   if (!stream) return;
@@ -585,6 +588,8 @@ uint8_t *h2p_raw_data(int32_t stream_id, uint8_t *data, size_t data_size,
   }
 
   nghttp2_session_send(session);
+
+  *(int32_t*)&(return_data.data[STREAM_ID_OFFSET]) = htonl(stream_id);
 
   nghttp2_session_del(session);
   
