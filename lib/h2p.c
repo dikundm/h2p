@@ -501,10 +501,12 @@ uint8_t *h2p_raw_headers(int32_t stream_id, nghttp2_nv *headers,
   nghttp2_session_client_new(&session, callbacks, &return_data);
   nghttp2_session_callbacks_del(callbacks);
 
-  nghttp2_submit_headers(session, NGHTTP2_FLAG_NONE, stream_id, NULL,
+  nghttp2_submit_headers(session, NGHTTP2_FLAG_NONE, -1, NULL,
                               headers, headers_num, NULL);
 
   nghttp2_session_send(session);
+
+  *(int32_t*)&(return_data.data[STREAM_ID_OFFSET]) = htonl(stream_id);
 
   nghttp2_session_del(session);
   
