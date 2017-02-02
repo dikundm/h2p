@@ -506,7 +506,9 @@ uint8_t *h2p_raw_headers(int32_t stream_id, nghttp2_nv *headers,
 
   nghttp2_session_send(session);
 
-  *(int32_t*)&(return_data.data[STREAM_ID_OFFSET]) = htonl(stream_id);
+  if (stream_id != -1) {
+    *(int32_t*)&(return_data.data[STREAM_ID_OFFSET]) = htonl(stream_id);
+  }
 
   nghttp2_session_del(session);
   
@@ -591,7 +593,9 @@ uint8_t *h2p_raw_data(int32_t stream_id, uint8_t *data, size_t data_size,
 
   nghttp2_session_send(session);
 
-  *(int32_t*)&(return_data.data[STREAM_ID_OFFSET]) = htonl(stream_id);
+  if (stream_id != -1) {
+    *(int32_t*)&(return_data.data[STREAM_ID_OFFSET]) = htonl(stream_id);
+  }
 
   nghttp2_session_del(session);
   
